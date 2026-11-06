@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Offline UPI Mesh - Simple Demo</title>
+    <style>
+        body { font-family: system-ui; max-width: 900px; margin: 40px auto; padding: 20px; background: #0f172a; color: #e2e8f0; }
+        .card { background: #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+        h1, h2 { color: #38bdf8; }
+        input, select, button, textarea { padding: 10px; margin: 6px 0; width: 100%; border-radius: 8px; border: none; box-sizing: border-box; }
+        button { background: #0ea5e9; color: white; font-weight: bold; cursor: pointer; }
+        button:hover { background: #0284c7; }
+        pre { background: #020617; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 13px; }
+        .success { color: #4ade80; }
+        .error { color: #f87171; }
+        table { width: 100%; border-collapse: collapse; }
+        td, th { padding: 10px; text-align: left; border-bottom: 1px solid #334155; }
+    </style>
+</head>
+<body>
+    <h1>Offline UPI Mesh</h1>
+    <p>Simple deferred settlement demo • Bluetooth transferable packets</p>
+
+    <div class="card">
+        <h2>1. Create Offline Payment (Sender)</h2>
+        <form id="createForm">
+            <select name="sender" required>
+                <option value="alice@upi">alice@upi (₹5000)</option>
+                <option value="bob@upi">bob@upi (₹3000)</option>
+                <option value="charlie@upi">charlie@upi (₹2000)</option>
+            </select>
+            <select name="receiver" required>
+                <option value="bob@upi">bob@upi</option>
+                <option value="alice@upi">alice@upi</option>
+                <option value="charlie@upi">charlie@upi</option>
+            </select>
+            <input type="number" name="amount" placeholder="Amount (₹)" step="0.01" required value="100">
+            <button type="submit">Encrypt & Create Packet</button>
+        </form>
+        <div id="packetResult" style="margin-top:20px;"></div>
+    </div>
+
+    <div class="card">
+        <h2>2. Upload Packet (Bridge Device)</h2>
+        <p>Paste the packet JSON received via Bluetooth / file:</p>
+        <textarea id="packetInput" rows="8" style="width:100%; background:#020617; color:#e2e8f0; border-radius:8px; padding:12px;"></textarea>
+        <button onclick="uploadPacket()">Upload & Settle</button>
+        <div id="uploadResult" style="margin-top:16px;"></div>
+    </div>
+
+    <div class="card">
+        <h2>Account Balances</h2>
+        <table>
+            <thead><tr><th>VPA</th><th>Name</th><th>Balance</th></tr></thead>
+            <tbody id="balances">
+                {% for acc in accounts %}
+                <tr><td>{{ acc.vpa }}</td><td>{{ acc.name }}</td><td>₹{{ "%.2f"|format(acc.balance) }}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button onclick="refreshBalances()" style="margin-top:12px;">Refresh Balances</button>
+    </div>
+
+    <script>
+        document.getElementById("createForm").onsubmit = async (e) => {
+            e.preventDefault();
+            const form = new FormData(e.target);
+            const res = await fetch("/create", { method: "POST", body: form });
+            const data = await res.json();
+            document.getElementById("packetResult").innerHTML = `
+                <p class="success">Encrypted packet created!</p>
+                <p>Copy this JSON and send it via Bluetooth to the bridge device:</p>
+                <pre id="packetJson">${data.packet_json}</pre>
+                <button onclick="navigator.clipboard.writeText(document.getElementById('packetJson').innerText)">Copy Packet</button>
+            `;
+        };
+
+        async function uploadPacket() {
+            const text = document.getElementById("packetInput").value.trim();
+            try {
+                const packet = JSON.parse(text);
+                const res = await fetch("/upload", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ packet })
+                });
+                const data = await res.json();
+                const cls = data.status === "SETTLED" ? "success" : "error";
+                document.getElementById("uploadResult").innerHTML = `<p class="${cls}">${data.status}: ${data.message}</p>`;
+                refreshBalances();
+            } catch (err) {
+                document.getElementById("uploadResult").innerHTML = `<p class="error">Invalid JSON</p>`;
+            }
+        }
+
+        async function refreshBalances() {
+            const res = await fetch("/accounts");
+            const accounts = await res.json();
+            document.getElementById("balances").innerHTML = accounts.map(a =>
+                `<tr><td>${a.vpa}</td><td>${a.name}</td><td>₹${a.balance.toFixed(2)}</td></tr>`
+            ).join("");
+        }
+    </script>
+</body>
+</html>
