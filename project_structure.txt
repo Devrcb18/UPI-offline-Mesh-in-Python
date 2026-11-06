@@ -1,7 +1,11 @@
 offline_upi_mesh/
+│
 ├── requirements.txt
-├── main.py                 # FastAPI backend + dashboard
-├── crypto_utils.py         # Hybrid encryption
-├── database.py             # SQLite setup
+├── main.py
+├── crypto_utils.py
+├── database.py
+├── sender.py
+├── bridge.py
+│
 └── templates/
-    └── index.html          # Simple live dashboard
+    └── index.html
