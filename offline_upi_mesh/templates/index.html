@@ -1,104 +1,596 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Offline UPI Mesh - Simple Demo</title>
+    <title>Offline UPI Mesh - Host Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/static/jsQR.js"></script>
     <style>
-        body { font-family: system-ui; max-width: 900px; margin: 40px auto; padding: 20px; background: #0f172a; color: #e2e8f0; }
-        .card { background: #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
-        h1, h2 { color: #38bdf8; }
-        input, select, button, textarea { padding: 10px; margin: 6px 0; width: 100%; border-radius: 8px; border: none; box-sizing: border-box; }
-        button { background: #0ea5e9; color: white; font-weight: bold; cursor: pointer; }
-        button:hover { background: #0284c7; }
-        pre { background: #020617; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 13px; }
-        .success { color: #4ade80; }
-        .error { color: #f87171; }
-        table { width: 100%; border-collapse: collapse; }
-        td, th { padding: 10px; text-align: left; border-bottom: 1px solid #334155; }
-    </style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 14px;
+            background-color: #f0f2f5;
+            color: #333333;
+            margin: 0;
+            padding: 0;
+        }
+        #wrapper {
+            width: 1000px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border: 1px solid #d0d0d0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        #header {
+            background-color: #1a3a5c;
+            color: #ffffff;
+            padding: 16px 24px;
+            border-bottom: 3px solid #0d253c;
+        }
+        #header h1 { margin: 0; font-size: 24px; font-weight: 600; }
+        #header p { margin: 6px 0 0 0; font-size: 13px; color: #a8c0d8; }
+        #content { padding: 24px; }
+        .section {
+            border: 1px solid #e0e0e0;
+            background-color: #fafafa;
+            margin-bottom: 24px;
+            padding: 20px;
+            border-radius: 4px;
+        }
+        .section h2 {
+            margin: 0 0 16px 0; font-size: 17px; color: #1a3a5c;
+            border-bottom: 1px solid #e0e0e0; padding-bottom: 8px;
+        }
+        .tab-bar {
+            margin-bottom: 16px;
+            border-bottom: 1px solid #d0d0d0;
+        }
+        .tab-btn {
+            display: inline-block; padding: 10px 20px; margin-right: 4px;
+            background-color: #e8e8e8; border: 1px solid #d0d0d0; border-bottom: none;
+            color: #333333; text-decoration: none; font-size: 13px; cursor: pointer;
+            border-radius: 4px 4px 0 0; font-weight: 500;
+        }
+        .tab-btn:hover { background-color: #e0e0e0; }
+        .tab-btn.active {
+            background-color: #fafafa; font-weight: 600; border-bottom: 1px solid #fafafa;
+            margin-bottom: -1px; color: #1a3a5c;
+        }
+        .tab-content { display: none; padding-top: 16px; }
+        .tab-content.active { display: block; }
+        input, select, textarea, button {
+            font-family: inherit; font-size: 13px;
+            padding: 8px 12px; margin: 6px 0; border: 1px solid #c0c0c0;
+            background-color: #ffffff; border-radius: 3px;
+        }
+        button { background-color: #f0f0f0; cursor: pointer; padding: 10px 20px; font-weight: 500; }
+        button:hover { background-color: #e4e4e4; }
+        button:disabled { background-color: #f5f5f5; color: #a0a0a0; cursor: default; }
+        .btn-primary { background-color: #1a3a5c; color: #ffffff; border-color: #0d253c; }
+        .btn-primary:hover { background-color: #224a7a; }
+        .btn-secondary { background-color: #e0e0e0; color: #333; }
+        .btn-success { background-color: #206020; color: #fff; border-color: #154015; }
+        .btn-success:hover { background-color: #287028; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+        th, td { border: 1px solid #d0d0d0; padding: 10px; text-align: left; }
+        th { background-color: #f0f0f0; font-weight: 600; color: #444; }
+        .balance-positive { color: #1a6b1a; font-weight: 600; }
+        .balance-negative { color: #b02020; font-weight: 600; }
+        pre {
+            background-color: #f5f5f5; border: 1px solid #d0d0d0;
+            padding: 12px; font-size: 12px; overflow-x: auto; max-height: 220px;
+            border-radius: 3px; font-family: "Consolas", "Courier New", monospace;
+        }
+        .msg-success { color: #1a6b1a; font-weight: 600; }
+        .msg-error { color: #b02020; font-weight: 600; }
+        .msg-info { color: #1a3a5c; }
+        .msg-warning { color: #b07000; }
+        .scanner-container {
+            position: relative; background-color: #000;
+            border: 1px solid #c0c0c0; border-radius: 4px; overflow: hidden;
+            text-align: center;
+        }
+        video {
+            width: 100%; max-width: 560px; height: auto;
+            display: block; margin: 0 auto; background: #000;
+        }
+        .scanner-overlay {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none; display: flex; align-items: center; justify-content: center;
+        }
+        .scanner-frame {
+            width: 75%; height: 75%; max-width: 340px; max-height: 340px;
+            border: 3px solid #1a3a5c; border-radius: 8px;
+            box-shadow: 0 0 0 9999px rgba(0,0,0,0.6);
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { border-color: #1a3a5c; }
+            50% { border-color: #206020; }
+        }
+        .scanner-hint {
+            position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+            color: #ccc; font-size: 12px; padding: 8px 16px;
+            background-color: rgba(0,0,0,0.75); border-radius: 4px; white-space: nowrap;
+        }
+        .scanner-status {
+            position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+            font-size: 12px; padding: 6px 14px; border-radius: 4px;
+            background-color: rgba(0,0,0,0.8); color: #fff; white-space: nowrap;
+            transition: background-color 0.3s;
+        }
+        .form-row { margin-bottom: 10px; }
+        .form-row label { display: inline-block; width: 110px; font-weight: 600; color: #444; }
+        .form-row select, .form-row input { width: 280px; }
+        .account-box {
+            border: 1px solid #d0d0d0; background-color: #fff;
+            padding: 14px; margin-bottom: 10px; border-radius: 4px;
+        }
+        .account-box .vpa { font-family: "Consolas", "Courier New", monospace; font-size: 12px; color: #777; }
+        .account-box .name { font-weight: 600; font-size: 15px; margin: 4px 0; }
+        .account-box .balance { font-size: 20px; font-weight: 700; }
+        .status-log {
+            background-color: #f8f8f8; border: 1px solid #e0e0e0;
+            padding: 12px; max-height: 300px; overflow-y: auto;
+            font-family: "Consolas", "Courier New", monospace; font-size: 12px;
+            border-radius: 3px;
+        }
+        .log-entry { padding: 6px 0; border-bottom: 1px solid #e8e8e8; display: flex; gap: 10px; }
+        .log-time { color: #888; min-width: 70px; flex-shrink: 0; }
+        .log-type { font-weight: 600; min-width: 80px; flex-shrink: 0; }
+        .log-type.scan { color: #1a3a5c; }
+        .log-type.settle { color: #1a6b1a; }
+        .log-type.error { color: #b02020; }
+        .log-type.info { color: #666; }
+        .log-type.warning { color: #b07000; }
+        .paste-area {
+            width: 100%; min-height: 120px;
+            border: 1px dashed #b0b0b0; background-color: #fff;
+            padding: 12px; font-family: "Consolas", "Courier New", monospace; font-size: 12px;
+            box-sizing: border-box; outline: none; border-radius: 3px;
+        }
+        .paste-area:focus { border-color: #1a3a5c; border-style: solid; }
+        .hidden { display: none !important; }
+        .two-col { width: 100%; }
+        .two-col td { width: 50%; vertical-align: top; border: none; padding: 0 12px 0 0; }
+        .two-col td + td { padding: 0 0 0 12px; }
+        .result-badge {
+            display: inline-block; padding: 5px 14px; font-size: 12px;
+            font-weight: 600; border: 1px solid #c0c0c0; margin: 10px 0; border-radius: 3px;
+        }
+        .badge-settled { background-color: #e8f5e8; color: #1a6b1a; border-color: #b0d8b0; }
+        .badge-duplicate { background-color: #fef3e0; color: #b07000; border-color: #e8d0a0; }
+        .badge-invalid, .badge-rejected { background-color: #fdeaea; color: #b02020; border-color: #e8b0b0; }
+        .scan-result-box {
+            border: 1px solid #d0d0d0; background: #fafafa; padding: 16px; margin-top: 10px;
+            border-radius: 4px;
+        }
+        .scan-result-box.success { border-color: #b0d8b0; background: #f0fff0; }
+        .scan-result-box.error { border-color: #e8b0b0; background: #fff5f5; }
+        .processing-spinner {
+            display: inline-block; width: 16px; height: 16px;
+            border: 2px solid #d0d0d0; border-top-color: #1a3a5c;
+            border-radius: 50%; animation: spin 0.9s linear infinite;
+            margin-right: 10px; vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .packet-summary {
+            background: #f8f8f8; border: 1px solid #e0e0e0; padding: 12px;
+            margin: 12px 0; border-radius: 3px; font-size: 13px;
+        }
+        .packet-summary-row { display: flex; gap: 16px; margin: 6px 0; }
+        .packet-summary-label { color: #666; min-width: 90px; }
+        .packet-summary-value { font-family: "Consolas", monospace; color: #333; }
+        #footer {
+            background-color: #f5f5f5; border-top: 1px solid #e0e0e0;
+            padding: 10px 24px; font-size: 11px; color: #888; text-align: center;
+        }
+        .permission-notice {
+            background: #fff8e1; border: 1px solid #ffe0b2; padding: 12px;
+            border-radius: 4px; margin-bottom: 16px; color: #7b5b00;
+        }
+        .permission-notice strong { color: #5a4200; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    
+        .video-wrap { position: relative; display: inline-block; width: 100%; max-width: 640px; line-height: 0; }
+        .video-wrap video { width: 100%; max-width: none; }
+        #overlayCanvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+        .scanner-container { min-height: 120px; }
+        textarea.paste-area { resize: vertical; }
+</style>
 </head>
 <body>
-    <h1>Offline UPI Mesh</h1>
-    <p>Simple deferred settlement demo • Bluetooth transferable packets</p>
-
-    <div class="card">
-        <h2>1. Create Offline Payment (Sender)</h2>
-        <form id="createForm">
-            <select name="sender" required>
-                <option value="alice@upi">alice@upi (₹5000)</option>
-                <option value="bob@upi">bob@upi (₹3000)</option>
-                <option value="charlie@upi">charlie@upi (₹2000)</option>
-            </select>
-            <select name="receiver" required>
-                <option value="bob@upi">bob@upi</option>
-                <option value="alice@upi">alice@upi</option>
-                <option value="charlie@upi">charlie@upi</option>
-            </select>
-            <input type="number" name="amount" placeholder="Amount (₹)" step="0.01" required value="100">
-            <button type="submit">Encrypt & Create Packet</button>
-        </form>
-        <div id="packetResult" style="margin-top:20px;"></div>
+<div id="wrapper">
+    <div id="header">
+        <h1>Offline UPI Mesh</h1>
+        <p>Host Laptop Dashboard — Scan QR from Offline Sender and Settle Payment</p>
     </div>
 
-    <div class="card">
-        <h2>2. Upload Packet (Bridge Device)</h2>
-        <p>Paste the packet JSON received via Bluetooth / file:</p>
-        <textarea id="packetInput" rows="8" style="width:100%; background:#020617; color:#e2e8f0; border-radius:8px; padding:12px;"></textarea>
-        <button onclick="uploadPacket()">Upload & Settle</button>
-        <div id="uploadResult" style="margin-top:16px;"></div>
-    </div>
+    <div id="content">
+        <div class="section">
+            <div class="tab-bar">
+                <a href="javascript:void(0)" class="tab-btn active" data-tab="scan" onclick="showTab('scan')">Scan QR Code</a>
+                <a href="javascript:void(0)" class="tab-btn" data-tab="paste" onclick="showTab('paste')">Paste Packet</a>
+                <a href="javascript:void(0)" class="tab-btn" data-tab="create" onclick="showTab('create')">Create Packet (Online)</a>
+            </div>
 
-    <div class="card">
-        <h2>Account Balances</h2>
-        <table>
-            <thead><tr><th>VPA</th><th>Name</th><th>Balance</th></tr></thead>
-            <tbody id="balances">
-                {% for acc in accounts %}
-                <tr><td>{{ acc.vpa }}</td><td>{{ acc.name }}</td><td>₹{{ "%.2f"|format(acc.balance) }}</td></tr>
-                {% endfor %}
-            </tbody>
+            <div id="tab-scan" class="tab-content active">
+                <div id="permissionNotice" class="permission-notice hidden"></div>
+                <div class="scanner-container">
+                    <div class="video-wrap">
+                        <video id="scannerVideo" playsinline muted></video>
+                        <canvas id="overlayCanvas"></canvas>
+                        <div class="scanner-status hidden" id="scanStatus"></div>
+                        <div class="scanner-hint">Hold the QR steady — the whole camera image is scanned</div>
+                    </div>
+                </div>
+                <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+                    <button id="startScanBtn" class="btn-primary" onclick="startScanner()">Start Camera</button>
+                    <button id="stopScanBtn" class="btn-secondary hidden" onclick="stopScanner()">Stop Camera</button>
+                    <button id="torchBtn" class="btn-secondary hidden" onclick="toggleTorch()">Torch On</button>
+                    <button id="switchCamBtn" class="btn-secondary hidden" onclick="switchCamera()">Switch Camera</button>
+                    <button class="btn-secondary" onclick="document.getElementById('qrFile').click()">Scan From Image</button>
+                    <button class="btn-secondary" onclick="showTab('paste')">Paste Packet Instead</button>
+                    <input type="file" id="qrFile" accept="image/*" class="hidden" onchange="scanImageFile(this)">
+                </div>
+                <div id="scanResult" style="margin-top:14px;"></div>
+            </div>
+
+            <div id="tab-paste" class="tab-content">
+                <p>Paste the packet text (it starts with <code>UM1:</code>). Extra spaces, quotes or the whole <code>payment_packet.json</code> contents are fine:</p>
+                <textarea class="paste-area" id="pasteInput" spellcheck="false" placeholder="UM1:..."></textarea>
+                <br>
+                <button class="btn-primary" onclick="processPastedPacket()">Process Packet</button>
+                <div id="pasteResult" style="margin-top:12px;"></div>
+            </div>
+
+            <div id="tab-create" class="tab-content">
+                <form id="createForm">
+                    <div class="form-row">
+                        <label>Sender:</label>
+                        <select name="sender" id="createSender" required></select>
+                    </div>
+                    <div class="form-row">
+                        <label>Receiver:</label>
+                        <select name="receiver" id="createReceiver" required></select>
+                    </div>
+                    <div class="form-row">
+                        <label>Amount (Rs.):</label>
+                        <input type="number" name="amount" step="0.01" min="0.01" required value="100" style="width:140px;">
+                    </div>
+                    <button type="submit" class="btn-primary">Encrypt and Create Packet</button>
+                </form>
+                <div id="packetResult" style="margin-top:16px;"></div>
+            </div>
+        </div>
+
+        <table class="two-col">
+            <tr>
+                <td>
+                    <div class="section">
+                        <h2>Account Balances</h2>
+                        <div id="balanceCards"></div>
+                        <button onclick="refreshBalances()">Refresh Balances</button>
+                    </div>
+                </td>
+                <td>
+                    <div class="section">
+                        <h2>Settlement Log</h2>
+                        <div class="status-log" id="statusLog"></div>
+                    </div>
+                </td>
+            </tr>
         </table>
-        <button onclick="refreshBalances()" style="margin-top:12px;">Refresh Balances</button>
     </div>
 
-    <script>
-        document.getElementById("createForm").onsubmit = async (e) => {
-            e.preventDefault();
-            const form = new FormData(e.target);
-            const res = await fetch("/create", { method: "POST", body: form });
-            const data = await res.json();
-            document.getElementById("packetResult").innerHTML = `
-                <p class="success">Encrypted packet created!</p>
-                <p>Copy this JSON and send it via Bluetooth to the bridge device:</p>
-                <pre id="packetJson">${data.packet_json}</pre>
-                <button onclick="navigator.clipboard.writeText(document.getElementById('packetJson').innerText)">Copy Packet</button>
-            `;
-        };
+    <div id="footer">Offline UPI Mesh Host Dashboard — Local use only</div>
+</div>
 
-        async function uploadPacket() {
-            const text = document.getElementById("packetInput").value.trim();
+<script>
+    let stream = null, scanning = false, rafId = null, lastTick = 0, frames = 0;
+    let currentDeviceId = null, torchOn = false, settling = false;
+    const work = document.createElement('canvas');
+    const wctx = work.getContext('2d', { willReadFrequently: true });
+    const $ = (id) => document.getElementById(id);
+
+    function esc(s) {
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function showTab(name) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.toggle('active', el.dataset.tab === name));
+        $('tab-' + name).classList.add('active');
+        if (name !== 'scan') stopScanner();
+    }
+
+    /* ---------- Packet parsing (tolerant of NBSP, quotes, JSON wrapper, whitespace) ---------- */
+    function extractPacket(text) {
+        const m = String(text).replace(/\u00a0/g, ' ').match(/UM1:[A-Za-z0-9_\-]+/);
+        if (!m) throw new Error('No UPI-Mesh packet found (expected text starting with "UM1:")');
+        return m[0];
+    }
+
+    /* ---------- Camera scanning ---------- */
+    function setStatus(text, color) {
+        const el = $('scanStatus');
+        el.classList.remove('hidden');
+        el.textContent = text;
+        el.style.backgroundColor = color || 'rgba(26,58,92,0.85)';
+    }
+
+    async function startScanner() {
+        if (scanning) return;
+        if (typeof jsQR === 'undefined') {
+            logStatus('error', 'QR library failed to load (/static/jsQR.js missing?)');
+            return;
+        }
+        const notice = $('permissionNotice');
+        notice.classList.add('hidden');
+        $('scanResult').innerHTML = '';
+        setStatus('Requesting camera access...');
+
+        try {
+            const size = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+            const video = currentDeviceId
+                ? Object.assign({ deviceId: { exact: currentDeviceId } }, size)
+                : Object.assign({ facingMode: { ideal: 'environment' } }, size);
             try {
-                const packet = JSON.parse(text);
-                const res = await fetch("/upload", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ packet })
-                });
-                const data = await res.json();
-                const cls = data.status === "SETTLED" ? "success" : "error";
-                document.getElementById("uploadResult").innerHTML = `<p class="${cls}">${data.status}: ${data.message}</p>`;
-                refreshBalances();
-            } catch (err) {
-                document.getElementById("uploadResult").innerHTML = `<p class="error">Invalid JSON</p>`;
+                stream = await navigator.mediaDevices.getUserMedia({ video: video, audio: false });
+            } catch (e) {
+                if (e.name === 'NotAllowedError' || e.name === 'SecurityError') throw e;
+                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
             }
+
+            const v = $('scannerVideo');
+            v.srcObject = stream;
+            await v.play();
+
+            const track = stream.getVideoTracks()[0];
+            const caps = track.getCapabilities ? track.getCapabilities() : {};
+            if (caps.focusMode && caps.focusMode.includes('continuous')) {
+                try { await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
+            }
+            $('torchBtn').classList.toggle('hidden', !caps.torch);
+            torchOn = false;
+            $('torchBtn').textContent = 'Torch On';
+
+            const s = track.getSettings ? track.getSettings() : {};
+            currentDeviceId = s.deviceId || currentDeviceId;
+            scanning = true;
+            frames = 0;
+            $('startScanBtn').classList.add('hidden');
+            $('stopScanBtn').classList.remove('hidden');
+            $('switchCamBtn').classList.remove('hidden');
+            logStatus('info', 'Camera started (' + (s.width || '?') + 'x' + (s.height || '?') + '). Hold the QR in view.');
+            rafId = requestAnimationFrame(tick);
+        } catch (err) {
+            const denied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
+            const msg = denied
+                ? 'Camera access denied. Allow it via the lock icon in the address bar and reload. (Camera only works on http://localhost or https.)'
+                : 'Camera error: ' + err.message;
+            notice.textContent = msg;
+            notice.classList.remove('hidden');
+            logStatus('error', msg);
+            stopScanner();
+        }
+    }
+
+    function tick(ts) {
+        if (!scanning) return;
+        rafId = requestAnimationFrame(tick);
+        if (ts - lastTick < 80) return;      // ~12 scans/second
+        lastTick = ts;
+
+        const v = $('scannerVideo');
+        if (v.readyState < 2 || !v.videoWidth) return;
+
+        const scale = Math.min(1, 1280 / v.videoWidth);
+        const w = Math.round(v.videoWidth * scale), h = Math.round(v.videoHeight * scale);
+        work.width = w; work.height = h;
+        wctx.drawImage(v, 0, 0, w, h);
+        const img = wctx.getImageData(0, 0, w, h);
+        const code = jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
+        frames++;
+
+        const oc = $('overlayCanvas');
+        oc.width = w; oc.height = h;
+        const octx = oc.getContext('2d');
+        octx.clearRect(0, 0, w, h);
+
+        if (!code) {
+            if (frames % 5 === 0) setStatus('Scanning... no QR found yet (' + frames + ' frames)');
+            return;
         }
 
-        async function refreshBalances() {
-            const res = await fetch("/accounts");
-            const accounts = await res.json();
-            document.getElementById("balances").innerHTML = accounts.map(a =>
-                `<tr><td>${a.vpa}</td><td>${a.name}</td><td>₹${a.balance.toFixed(2)}</td></tr>`
-            ).join("");
+        const l = code.location;
+        octx.strokeStyle = '#20e020'; octx.lineWidth = 4; octx.beginPath();
+        octx.moveTo(l.topLeftCorner.x, l.topLeftCorner.y);
+        octx.lineTo(l.topRightCorner.x, l.topRightCorner.y);
+        octx.lineTo(l.bottomRightCorner.x, l.bottomRightCorner.y);
+        octx.lineTo(l.bottomLeftCorner.x, l.bottomLeftCorner.y);
+        octx.closePath(); octx.stroke();
+
+        if (code.data.indexOf('UM1:') === -1) {
+            setStatus('QR found, but it is not a UPI-Mesh packet', 'rgba(176,112,0,0.9)');
+            return;
         }
-    </script>
+        setStatus('QR detected — settling...', 'rgba(32,96,32,0.9)');
+        logStatus('scan', 'QR detected (' + code.data.length + ' chars).');
+        stopScanner(true);
+        handleQRResult(code.data, 'scanResult');
+    }
+
+    function stopScanner(keepOverlay) {
+        scanning = false;
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = null;
+        if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+        $('scannerVideo').srcObject = null;
+        $('startScanBtn').classList.remove('hidden');
+        $('stopScanBtn').classList.add('hidden');
+        $('torchBtn').classList.add('hidden');
+        $('switchCamBtn').classList.add('hidden');
+        if (!keepOverlay) $('scanStatus').classList.add('hidden');
+    }
+
+    async function toggleTorch() {
+        try {
+            const track = stream && stream.getVideoTracks()[0];
+            await track.applyConstraints({ advanced: [{ torch: !torchOn }] });
+            torchOn = !torchOn;
+            $('torchBtn').textContent = torchOn ? 'Torch Off' : 'Torch On';
+        } catch (e) {
+            logStatus('warning', 'Torch not available: ' + e.message);
+        }
+    }
+
+    async function switchCamera() {
+        try {
+            const devices = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+            if (devices.length < 2) { logStatus('warning', 'Only one camera available'); return; }
+            const idx = devices.findIndex(d => d.deviceId === currentDeviceId);
+            currentDeviceId = devices[(idx + 1) % devices.length].deviceId;
+            stopScanner();
+            await startScanner();
+        } catch (e) {
+            logStatus('error', 'Camera switch failed: ' + e.message);
+        }
+    }
+
+    /* ---------- Scan from an image file (useful for testing payment_qr.png) ---------- */
+    function scanImageFile(input) {
+        const file = input.files && input.files[0];
+        input.value = '';
+        if (!file) return;
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+            const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+            work.width = w; work.height = h;
+            wctx.fillStyle = '#fff'; wctx.fillRect(0, 0, w, h);
+            wctx.drawImage(img, 0, 0, w, h);
+            const data = wctx.getImageData(0, 0, w, h);
+            const code = jsQR(data.data, w, h, { inversionAttempts: 'attemptBoth' });
+            URL.revokeObjectURL(url);
+            if (!code) {
+                $('scanResult').innerHTML = '<div class="scan-result-box error"><p class="msg-error">No QR code found in that image.</p></div>';
+                logStatus('error', 'No QR code found in image.');
+                return;
+            }
+            logStatus('scan', 'QR read from image (' + code.data.length + ' chars).');
+            handleQRResult(code.data, 'scanResult');
+        };
+        img.onerror = () => logStatus('error', 'Could not open that image.');
+        img.src = url;
+    }
+
+    /* ---------- Handling + settlement ---------- */
+    function handleQRResult(text, targetId) {
+        let packet;
+        try {
+            packet = extractPacket(text);
+        } catch (e) {
+            $(targetId).innerHTML = '<div class="scan-result-box error"><p class="msg-error">' + esc(e.message) + '</p></div>';
+            logStatus('error', e.message);
+            return;
+        }
+        settlePacket(packet, targetId);
+    }
+
+    function processPastedPacket() {
+        const text = $('pasteInput').value.trim();
+        if (!text) return;
+        handleQRResult(text, 'pasteResult');
+    }
+
+    async function settlePacket(packet, targetId) {
+        if (settling) return;
+        settling = true;
+        const resultDiv = $(targetId);
+        resultDiv.innerHTML = '<div class="scan-result-box"><span class="processing-spinner"></span> <span class="msg-info">Settling payment...</span></div>';
+        logStatus('info', 'Sending packet to backend...');
+        try {
+            const res = await fetch('/upload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ packet: packet })
+            });
+            const data = await res.json();
+            const ok = data.status === 'SETTLED';
+            const badgeClass = ok ? 'badge-settled' : data.status === 'DUPLICATE' ? 'badge-duplicate' : 'badge-rejected';
+            resultDiv.innerHTML =
+                '<div class="scan-result-box ' + (ok ? 'success' : 'error') + '">' +
+                '<span class="result-badge ' + badgeClass + '">' + esc(data.status) + '</span>' +
+                '<p class="' + (ok ? 'msg-success' : 'msg-error') + '">' + esc(data.message) + '</p></div>';
+            showToast(data.status, data.message, ok);
+            logStatus(ok ? 'settle' : 'error', data.status + ': ' + data.message);
+            refreshBalances();
+        } catch (err) {
+            resultDiv.innerHTML = '<div class="scan-result-box error"><p class="msg-error">Settlement failed: ' + esc(err.message) + '</p></div>';
+            showToast('ERROR', 'Settlement failed: ' + err.message, false);
+            logStatus('error', 'Settlement failed: ' + err.message);
+        } finally {
+            settling = false;
+        }
+    }
+
+    function showToast(title, message, isSuccess) {
+        const toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;padding:16px 24px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.3);font-size:14px;font-weight:600;max-width:360px;animation:slideIn 0.3s ease;color:#fff;background:' + (isSuccess ? '#1a6b1a' : '#b02020');
+        toast.innerHTML = '<div style="font-size:12px;opacity:0.9;">' + esc(title) + '</div><div>' + esc(message) + '</div>';
+        document.body.appendChild(toast);
+        setTimeout(() => { toast.style.animation = 'slideOut 0.3s ease'; setTimeout(() => toast.remove(), 300); }, 4000);
+    }
+
+    /* ---------- Create packet (online helper) ---------- */
+    $('createForm').onsubmit = async function (e) {
+        e.preventDefault();
+        const res = await fetch('/create', { method: 'POST', body: new FormData(e.target) });
+        const data = await res.json();
+        $('packetResult').innerHTML =
+            '<p class="msg-success">Encrypted packet created (' + data.packet.length + ' characters).</p>' +
+            '<img src="' + data.qr_png + '" alt="QR" style="width:260px;height:260px;image-rendering:pixelated;border:1px solid #ddd;background:#fff;">' +
+            '<pre id="packetJson">' + esc(data.packet) + '</pre>' +
+            '<button onclick="navigator.clipboard.writeText($(\'packetJson\').textContent)">Copy Packet</button>';
+    };
+
+    /* ---------- Balances / log ---------- */
+    async function refreshBalances() {
+        try {
+            const accounts = await (await fetch('/accounts')).json();
+            $('balanceCards').innerHTML = accounts.map(a =>
+                '<div class="account-box"><div class="vpa">' + esc(a.vpa) + '</div><div class="name">' + esc(a.name) +
+                '</div><div class="balance ' + (a.balance >= 0 ? 'balance-positive' : 'balance-negative') + '">Rs.' + a.balance.toFixed(2) + '</div></div>'
+            ).join('');
+            ['createSender', 'createReceiver'].forEach((id, i) => {
+                const sel = $(id), prev = sel.value;
+                sel.innerHTML = accounts.map(a => '<option value="' + esc(a.vpa) + '">' + esc(a.vpa) + '</option>').join('');
+                sel.value = prev || (accounts[i] ? accounts[i].vpa : '');
+            });
+        } catch (e) {
+            console.error('Balance refresh failed:', e);
+        }
+    }
+
+    function logStatus(type, message) {
+        const log = $('statusLog');
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        entry.innerHTML = '<span class="log-time">' + new Date().toLocaleTimeString() + '</span>' +
+            '<span class="log-type ' + type + '">[' + type.toUpperCase() + ']</span><span>' + esc(message) + '</span>';
+        log.insertBefore(entry, log.firstChild);
+    }
+
+    refreshBalances();
+    logStatus('info', 'Dashboard ready. Click "Start Camera" to scan QR.');
+</script>
 </body>
 </html>

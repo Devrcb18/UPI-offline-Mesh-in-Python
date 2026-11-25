@@ -3,6 +3,7 @@ from pathlib import Path
 
 DB_PATH = Path("upi_mesh.db")
 
+
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute("""
@@ -23,14 +24,11 @@ async def init_db():
                 created_at TEXT
             )
         """)
-        # Seed demo accounts
-        await db.execute("INSERT OR IGNORE INTO accounts VALUES (?, ?, ?)", 
-                         ("alice@upi", "Alice", 5000.0))
-        await db.execute("INSERT OR IGNORE INTO accounts VALUES (?, ?, ?)", 
-                         ("bob@upi", "Bob", 3000.0))
-        await db.execute("INSERT OR IGNORE INTO accounts VALUES (?, ?, ?)", 
-                         ("charlie@upi", "Charlie", 2000.0))
+        await db.execute("INSERT OR IGNORE INTO accounts VALUES (?, ?, ?)", ("alice@upi", "Alice", 5000.0))
+        await db.execute("INSERT OR IGNORE INTO accounts VALUES (?, ?, ?)", ("bob@upi", "Bob", 3000.0))
+        await db.execute("INSERT OR IGNORE INTO accounts VALUES (?, ?, ?)", ("charlie@upi", "Charlie", 2000.0))
         await db.commit()
+
 
 async def get_accounts():
     async with aiosqlite.connect(DB_PATH) as db:
@@ -38,20 +36,34 @@ async def get_accounts():
         cursor = await db.execute("SELECT * FROM accounts")
         return [dict(row) for row in await cursor.fetchall()]
 
+
 async def settle_payment(packet_hash: str, sender: str, receiver: str, amount: float):
+    # Basic sanity checks (a negative amount would otherwise move money backwards,
+    # and an unknown receiver would make the money vanish).
+    if not amount or amount <= 0:
+        return {"status": "REJECTED", "message": "Amount must be positive"}
+    if sender == receiver:
+        return {"status": "REJECTED", "message": "Sender and receiver are the same"}
+
     async with aiosqlite.connect(DB_PATH) as db:
+        for vpa in (sender, receiver):
+            cur = await db.execute("SELECT 1 FROM accounts WHERE vpa = ?", (vpa,))
+            if not await cur.fetchone():
+                return {"status": "REJECTED", "message": f"Unknown account: {vpa}"}
+
         try:
             await db.execute(
-                "INSERT INTO transactions (packet_hash, sender, receiver, amount, status, created_at) VALUES (?, ?, ?, ?, ?, datetime('now'))",
-                (packet_hash, sender, receiver, amount, "SETTLED")
+                "INSERT INTO transactions (packet_hash, sender, receiver, amount, status, created_at) "
+                "VALUES (?, ?, ?, ?, ?, datetime('now'))",
+                (packet_hash, sender, receiver, amount, "SETTLED"),
             )
         except aiosqlite.IntegrityError:
             return {"status": "DUPLICATE", "message": "Packet already settled"}
 
         cursor = await db.execute("SELECT balance FROM accounts WHERE vpa = ?", (sender,))
         row = await cursor.fetchone()
-        if not row or row[0] < amount:
-            await db.execute("UPDATE transactions SET status = ? WHERE packet_hash = ?", 
+        if row[0] < amount:
+            await db.execute("UPDATE transactions SET status = ? WHERE packet_hash = ?",
                              ("REJECTED_INSUFFICIENT", packet_hash))
             await db.commit()
             return {"status": "REJECTED", "message": "Insufficient balance"}
@@ -59,4 +71,8 @@ async def settle_payment(packet_hash: str, sender: str, receiver: str, amount: f
         await db.execute("UPDATE accounts SET balance = balance - ? WHERE vpa = ?", (amount, sender))
         await db.execute("UPDATE accounts SET balance = balance + ? WHERE vpa = ?", (amount, receiver))
         await db.commit()
-        return {"status": "SETTLED", "message": f"₹{amount} transferred from {sender} to {receiver}"}
+        return {
+            "status": "SETTLED",
+            "message": f"Rs.{amount:.2f} transferred from {sender} to {receiver}",
+            "sender": sender, "receiver": receiver, "amount": amount,
+        }
